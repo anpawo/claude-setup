@@ -211,7 +211,7 @@ elif [[ -n "$sd_pct" && "$sd_pct" != "-" ]]; then
   # (0 % de fait) : la semaine tient la barre en attendant, plutôt qu'un « loading » sans fin.
   sd_col=$(usage_color "$sd_pct")
   # Une semaine se lit en jour et heure, pas en « 120h53m ».
-  limits=" ${SEP} ${sd_col}${sd_pct}% wk ${PAREN}-${sd_col} reset $(date -r "$sd_reset" '+%a %Hh')${R}"
+  limits=" ${SEP} ${sd_col}${sd_pct}% wk ${PAREN}-${sd_col} reset $(date -r "$sd_reset" '+%a %Hh' 2>/dev/null || date -d "@$sd_reset" '+%a %Hh')${R}"
 else
   # Les limites arrivent quelques secondes après le lancement : un « loading » qui avance à
   # chaque rafraîchissement, sur une largeur fixe pour que la ligne ne bouge pas.

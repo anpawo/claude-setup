@@ -6,7 +6,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 C="$HOME/.claude"
 
 for tool in jq git gh; do
-  command -v "$tool" >/dev/null || { echo "Missing $tool. On a Mac: brew install $tool"; exit 1; }
+  command -v "$tool" >/dev/null || { echo "Missing $tool: see the install steps in README.md"; exit 1; }
 done
 gh auth status >/dev/null 2>&1 || echo "Note: run 'gh auth login' once so Claude can create and push GitHub repos."
 

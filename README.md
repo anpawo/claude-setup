@@ -4,7 +4,11 @@ A starter setup for Claude Code: a few skills that help in most projects, a stat
 
 ## Install
 
-On a Mac, in a terminal:
+Pick your system. The order is the same everywhere: GitHub, then Claude Code, then this setup.
+
+### macOS
+
+In Terminal:
 
 ```sh
 # 1. Homebrew (skip if `brew --version` already works)
@@ -28,7 +32,66 @@ cd claude-setup
 npm install -g @playwright/cli@latest
 ```
 
-Then start a new `claude` session. Run `./install.sh` again any time to update.
+### Linux (Ubuntu, Debian)
+
+In a terminal (on Fedora, use `dnf` instead of `apt`):
+
+```sh
+# 1. GitHub: git, the GitHub CLI, and a login so Claude can create and push repos
+sudo apt update
+sudo apt install -y git gh curl
+gh auth login
+
+# 2. Claude Code, then log in once (type /exit to leave)
+curl -fsSL https://claude.ai/install.sh | bash
+claude
+
+# 3. This setup
+sudo apt install -y jq nodejs npm
+git clone https://github.com/anpawo/claude-setup.git
+cd claude-setup
+./install.sh
+
+# 4. Optional: the browser tool used by the playwright-cli skill
+sudo npm install -g @playwright/cli@latest
+```
+
+### Windows
+
+In PowerShell:
+
+```powershell
+# 1. GitHub: Git (it brings Git Bash, which Claude Code needs), the GitHub CLI, and a login
+winget install --id Git.Git -e
+winget install --id GitHub.cli -e
+# close and reopen PowerShell, then:
+gh auth login
+
+# 2. Claude Code, then log in once (type /exit to leave)
+irm https://claude.ai/install.ps1 | iex
+# close and reopen PowerShell, then:
+claude
+
+# 3. Tools for this setup
+winget install --id jqlang.jq -e
+winget install --id OpenJS.NodeJS.LTS -e
+```
+
+Then open **Git Bash** (from the Start menu) and run:
+
+```sh
+# 4. This setup
+git clone https://github.com/anpawo/claude-setup.git
+cd claude-setup
+./install.sh
+
+# 5. Optional: the browser tool used by the playwright-cli skill
+npm install -g @playwright/cli@latest
+```
+
+### After installing
+
+Start a new `claude` session. Run `./install.sh` again any time to update.
 
 ## What it installs
 
@@ -47,7 +110,7 @@ Call one by typing its name (`/grill`) or just asking for what it does.
 | `grill` | Questions you on a plan, round by round, before anything gets built | "grill me on this" |
 | `diagnosing-bugs` | A step-by-step loop for hard bugs and slowdowns | "debug this", "diagnose" |
 | `ui-tweak` | Makes a visual change and checks it with a headless screenshot | "make the header smaller" |
-| `playwright-cli` | Drives a browser to test or read web pages (needs step 5) | "open the page and check the form" |
+| `playwright-cli` | Drives a browser to test or read web pages (needs the optional last step) | "open the page and check the form" |
 | `santa` | Three independent reviewers check a deliverable before it is sent | "santa", "review before sending" |
 | `sm` | Shortens the last answer as much as possible | "/sm" |
 | `llm-council` | Five advisors answer a hard decision on their own, then review each other | "council this", "should I X or Y" |
