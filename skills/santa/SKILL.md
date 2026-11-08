@@ -1,6 +1,6 @@
 ---
 name: santa
-description: Adversarial review by three independent reviewers before a deliverable leaves the machine. All three must pass; otherwise fix and rerun, three rounds max. Runs on its own before anything is sent to a human (mail, ticket, note to a teacher or jury, portfolio page, CV, release) and on request. Triggers: "/santa", "santa", "check it twice", "review before sending", "relis avant d'envoyer".
+description: Adversarial review by three independent reviewers before a deliverable leaves the machine. All three must pass; otherwise fix and rerun, three rounds max. Runs on its own before anything is sent to a human (mail, ticket, note to a client or a manager, public page, CV, release) and on request. Triggers: "/santa", "santa", "check it twice", "review before sending".
 ---
 
 # Santa: make a list, check it three times
@@ -13,7 +13,7 @@ exists to catch.
 ## When it runs
 
 - **On its own**, right before a deliverable goes to a human: a mail or ticket sent in the user's
-  name, a note to a teacher or jury, a portfolio page, a CV, a release, a shared document.
+  name, a note to a client or a manager, a public page, a CV, a release, a shared document.
 - **On request**: `/santa <file or text>`.
 - **Never** for an internal draft, an exploration, or what a build, test or lint already checks better.
 

@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
 input=$(cat)
 
-# Tout à gauche : un bloc rouge tant que le dernier prompt tapé a été coupé par Fleet
-# (le tampon `.stopped` du hook est plus récent que le tampon `.prompted`). Il disparaît
-# au prochain prompt, qui remet `.prompted` à jour.
-sid=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null)
-stopmark=""
-if [[ -n "$sid" && -f "$HOME/.claude/fleet/state/$sid.stopped" ]]; then
-  stopped=$(cat "$HOME/.claude/fleet/state/$sid.stopped" 2>/dev/null || echo 0)
-  prompted=$(cat "$HOME/.claude/fleet/state/$sid.prompted" 2>/dev/null || echo 0)
-  [[ "${stopped:-0}" -gt "${prompted:-0}" ]] && stopmark=$'\033[48;5;196m\033[97;1m STOPPED \033[0m '
-fi
-
-# Colors — one distinct hue per segment, 256-color so the segments stay
+# Colors: one distinct hue per segment, 256-color so the segments stay
 # distinguishable. Separators are dim so the data reads louder than the chrome.
-DIR='\033[38;5;62m'    # periwinkle — matches the file-path blue in transcript output
+DIR='\033[38;5;62m'    # periwinkle: matches the file-path blue in transcript output
 MODEL='\033[38;5;129m' # deep violet
 CTX='\033[38;5;34m'    # grass green
 DIM='\033[38;5;240m'   # separators only
@@ -22,18 +11,18 @@ R='\033[0m'            # reset
 SEP="${DIM}|${R}"
 
 # Usage-bar hues, picked by headroom rather than by segment.
-OK='\033[38;5;62m'     # periwinkle — same blue as the path
+OK='\033[38;5;62m'     # periwinkle: same blue as the path
 WARN='\033[38;5;179m'  # soft amber
 CRIT='\033[38;5;168m'  # dusty rose
-AGENT='\033[38;5;215m' # abricot — les agents en cours, distinct des barres d'usage
+AGENT='\033[38;5;215m' # apricot: running agents, apart from the usage bars
 
 # Git-state hues, ordered by how much work exists in only one place.
-SYNCED='\033[38;5;71m'  # green — committed and pushed, nothing to lose
-UNPUSH='\033[38;5;179m' # amber — committed, but the remote doesn't have it
-UNCOMM='\033[38;5;168m' # rose — uncommitted, exists only in this working tree
-PAREN='\033[38;5;16m'  # black — the " - " separators
+SYNCED='\033[38;5;71m'  # green: committed and pushed, nothing to lose
+UNPUSH='\033[38;5;179m' # amber: committed, but the remote doesn't have it
+UNCOMM='\033[38;5;168m' # rose: uncommitted, exists only in this working tree
+PAREN='\033[38;5;16m'  # black: the " - " separators
 
-# Current directory — the session's cwd, which follows a mid-session `cd`.
+# Current directory: the session's cwd, which follows a mid-session `cd`.
 # Falls back through the older payload shapes, then to $PWD.
 dir=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // .workspace.project_dir // empty' 2>/dev/null)
 [[ -z "$dir" ]] && dir="$PWD"
@@ -41,8 +30,7 @@ repo="$dir"            # keep the real path; $dir gets tilde-shortened for displ
 dir="${dir/#$HOME/~}"
 
 # In a repo, the repo's folder (a worktree's is the repo it was cut from), after the folders
-# of the repos around it: work/api. Outside one, the whole path. Fleet names its
-# cards by the last folder and groups them by the first.
+# of the repos around it: work/api. Outside one, the whole path.
 common=$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
 if [[ "$common" == */.git ]]; then
   top="${common%/.git}"
@@ -61,7 +49,7 @@ fi
 # is anything uncommitted, and is anything unpushed. Worst state wins, so it only reads
 # "up to date" when both are clean. A detached HEAD has nothing to push: no word unless dirty.
 # Note the ahead-count is measured against the last-fetched upstream, not the live
-# remote — this says "I haven't pushed", not "the remote has moved on".
+# remote: this says "I haven't pushed", not "the remote has moved on".
 if git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   branch=$(git -C "$repo" branch --show-current 2>/dev/null)
   [[ -z "$branch" ]] && branch="detached $(git -C "$repo" rev-parse --short HEAD 2>/dev/null)"
@@ -84,7 +72,7 @@ if git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   # once a minute, so the line shows what the last fetch saw.
   url=$(git -C "$repo" remote get-url origin 2>/dev/null)
   if [[ "$word" != "local only" && "$branch" != detached* && "$url" == *github.com* ]]; then
-    # named by hand: gh reads the remote's host through ~/.ssh/config, which pins github.com to an IP it does not know
+    # Named by hand: gh cannot resolve the repo when ~/.ssh/config aliases github.com.
     slug=${url#*github.com[:/]}; slug=${slug%.git}
     pr_cache="$HOME/.cache/statusline-pr/$(echo "$repo@$branch" | tr '/' '_')"
     if [[ ! -f "$pr_cache" || -n $(find "$pr_cache" -mmin +1 2>/dev/null) ]]; then
@@ -114,26 +102,23 @@ else
   git_seg=" ${SEP} ${DIM}not a repo${R}"
 fi
 
-# Model: already formatted as "Sonnet 4.6", suivi du niveau d'effort (.effort.level :
-# low / medium / high / xhigh / max), absent des vieilles versions du CLI.
+# Model: already formatted as "Sonnet 4.6", then the effort level (.effort.level:
+# low / medium / high / xhigh / max), missing from older CLI versions.
 model=$(echo "$input" | jq -r '.model.display_name // .model // "?"' 2>/dev/null)
 model=${model%% (*}
 effort=$(echo "$input" | jq -r '.effort.level // empty' 2>/dev/null)
 [[ -n "$effort" ]] && model="${model} ${PAREN}-${MODEL} ${effort}"
 
-# Mode de permission, à gauche du modèle, même rouge et mêmes mots que la ligne de pied de page
-# que le patch binaire retire. Le payload ne le porte pas ; le journal de session
-# écrit une ligne `permission-mode` à chaque prompt, on prend la dernière. Un shift+tab entre
-# deux prompts n'apparaît donc qu'au prompt suivant.
-MODE_BYPASS='\033[38;2;171;43;63m' # le rouge exact de la ligne « bypass permissions on » de Claude Code
-MODE_EDIT='\033[38;5;179m'   # ambre
-MODE_PLAN='\033[38;5;62m'    # pervenche
+# Permission mode, left of the model, in the same red and words as Claude Code's footer.
+# The payload does not carry it; the transcript writes a `permission-mode` line at each
+# prompt, so a shift+tab between two prompts shows at the next prompt.
+MODE_BYPASS='\033[38;2;171;43;63m' # the red of Claude Code's "bypass permissions on" line
+MODE_EDIT='\033[38;5;179m'   # amber
+MODE_PLAN='\033[38;5;62m'    # periwinkle
 tp=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
 mode_seg=""
-# Le binaire patché (bullet-band.py) écrit le mode dans ~/.claude/sessions/<pid>.mode dès qu'il
-# change ; le transcript ne l'écrit qu'au prompt suivant. Fichier d'abord, transcript en secours.
-pm=$(cat "$HOME/.claude/sessions/${CLAUDE_PID:-$PPID}.mode" 2>/dev/null)
-if [[ -z "$pm" && -r "$tp" ]]; then
+pm=""
+if [[ -r "$tp" ]]; then
   pm=$(tail -c 200000 "$tp" 2>/dev/null | grep -oE '"type":"permission-mode","permissionMode":"[A-Za-z]+"' | tail -1)
   pm=${pm##*:\"}; pm=${pm%\"}
 fi
@@ -148,7 +133,7 @@ if [[ -n "$pm" ]]; then
   [[ -n "$mode_seg" ]] && mode_seg="${mode_seg} ${SEP} "
 fi
 
-# Context fill as "4% 1M" — percentage of the window plus the window size. The raw
+# Context fill as "4% 1M": percentage of the window plus the window size. The raw
 # token count is dropped: it's the same measurement the percentage already states.
 read -r ctx_pct total < <(echo "$input" | jq -r '
   def human:
@@ -163,7 +148,7 @@ read -r ctx_pct total < <(echo "$input" | jq -r '
 
 # Plan usage limits (Claude.ai subscription windows), refreshed on every status line run.
 # five_hour = current session window, seven_day = weekly "all models" bar.
-# The percentages arrive as floats (e.g. 14.000000000000002), so round them here —
+# The percentages arrive as floats (e.g. 14.000000000000002), so round them here:
 # bash arithmetic can't compare a decimal, so an unrounded value breaks the > 90 tests
 # as well as printing an absurd number of digits.
 read -r fh_pct fh_reset sd_pct sd_reset < <(echo "$input" | jq -r '
@@ -173,15 +158,6 @@ read -r fh_pct fh_reset sd_pct sd_reset < <(echo "$input" | jq -r '
     (.rate_limits.seven_day.used_percentage  | pct),
     (.rate_limits.seven_day.resets_at        // 0) ] | @tsv
 ' 2>/dev/null)
-
-usage_now=$(date +%s)
-if [[ "$sd_pct" =~ ^[0-9]+$ && "$sd_reset" =~ ^[0-9]+$ ]]; then
-  weekly_limit=false
-  if (( sd_pct >= 100 && sd_reset > usage_now )); then weekly_limit=true; fi
-  mkdir -p "$HOME/.local/state"
-  usage_tmp=$(mktemp "$HOME/.local/state/claude-usage.XXXXXX")
-  jq -n --argjson reached "$weekly_limit" --argjson reset "$sd_reset" --argjson pct "$sd_pct" '{weeklyLimitReached:$reached, weeklyLimitResetAt:$reset, weeklyPct:$pct}' > "$usage_tmp" && mv "$usage_tmp" "$HOME/.local/state/claude-usage.json"
-fi
 
 # Compact "2h50m" / "45m" countdown from an epoch reset timestamp.
 countdown() {
@@ -207,14 +183,14 @@ if [[ -n "$fh_pct" && "$fh_pct" != "-" ]]; then
   fh_col=$(usage_color "$fh_pct")
   limits=" ${SEP} ${fh_col}${fh_pct}% usage ${PAREN}-${fh_col} reset $(countdown "$fh_reset")${R}"
 elif [[ -n "$sd_pct" && "$sd_pct" != "-" ]]; then
-  # Claude Code retire `five_hour` dès que sa fenêtre est passée sans nouvelle réponse
-  # (0 % de fait) : la semaine tient la barre en attendant, plutôt qu'un « loading » sans fin.
+  # Claude Code drops `five_hour` once its window has passed with no new reply (0% used):
+  # the weekly bar stands in, rather than an endless "loading".
   sd_col=$(usage_color "$sd_pct")
-  # Une semaine se lit en jour et heure, pas en « 120h53m ».
+  # A week reads as day and hour, not "120h53m".
   limits=" ${SEP} ${sd_col}${sd_pct}% wk ${PAREN}-${sd_col} reset $(date -r "$sd_reset" '+%a %Hh' 2>/dev/null || date -d "@$sd_reset" '+%a %Hh')${R}"
 else
-  # Les limites arrivent quelques secondes après le lancement : un « loading » qui avance à
-  # chaque rafraîchissement, sur une largeur fixe pour que la ligne ne bouge pas.
+  # The limits arrive a few seconds after launch: a "loading" that steps at each refresh,
+  # at a fixed width so the line does not shift.
   dots=$(( $(date +%s) % 3 + 1 ))
   limits=" ${SEP} ${OK}$(printf 'loading usage%-3s' "$(printf '.%.0s' $(seq 1 $dots))")${R}"
 fi
@@ -224,33 +200,30 @@ if [[ -n "$fh_pct" && "$fh_pct" != "-" && -n "$sd_pct" && "$sd_pct" != "-" ]]; t
 fi
 
 
-# Agents en cours, lus dans le journal de session. Le payload ne porte pas
-# l'information mais il donne `transcript_path`, et le journal contient un
-# tool_use "Agent" au lancement puis un tool_result au retour : ce qui reste
-# sans resultat tourne encore.
+# Running agents, read from the transcript: an "Agent" tool_use at launch, a tool_result
+# on return, so one with no result is still running.
 #
-# Trois filtres en flux, jamais de contenu dans une variable bash — 4 Mo dans
-# un `<<<` coutent 1,7 s, la meme donnee en flux 100 ms. On ne lit que la fin
-# du journal : un agent encore actif a forcement ete lance recemment.
-FENETRE_AGENTS=1000000
+# Streamed through three filters, never held in a bash variable: 4 MB in a `<<<` costs
+# 1.7 s, the same data streamed 100 ms. Only the tail is read: a running agent started recently.
+AGENT_WINDOW=1000000
 agents=""
 if [[ -r "$tp" ]]; then
-  liste=$(tail -c "$FENETRE_AGENTS" "$tp" 2>/dev/null \
+  running=$(tail -c "$AGENT_WINDOW" "$tp" 2>/dev/null \
     | grep -oE '"id":"toolu_[A-Za-z0-9]+","name":"Agent","input":\{"description":"[^"]*"|"tool_use_id":"toolu_[A-Za-z0-9]+"' \
     | awk '
       /"name":"Agent"/ {
         id = $0; sub(/^"id":"/, "", id); sub(/".*/, "", id)
         d  = $0; sub(/.*"description":"/, "", d); sub(/"$/, "", d)
-        nom[id] = d; ordre[++n] = id; next
+        desc[id] = d; order[++n] = id; next
       }
-      { id = $0; sub(/^"tool_use_id":"/, "", id); sub(/"$/, "", id); fini[id] = 1 }
+      { id = $0; sub(/^"tool_use_id":"/, "", id); sub(/"$/, "", id); done[id] = 1 }
       END {
-        for (i = 1; i <= n; i++) if (!(ordre[i] in fini)) liste[++k] = nom[ordre[i]]
+        for (i = 1; i <= n; i++) if (!(order[i] in done)) list[++k] = desc[order[i]]
         if (k == 0) exit
         printf "%d agent%s: ", k, (k > 1 ? "s" : "")
-        for (i = 1; i <= k; i++) printf "%s%s", (i > 1 ? ", " : ""), liste[i]
+        for (i = 1; i <= k; i++) printf "%s%s", (i > 1 ? ", " : ""), list[i]
       }')
-  [[ -n "$liste" ]] && agents=" ${SEP} ${AGENT}${liste}${R}"
+  [[ -n "$running" ]] && agents=" ${SEP} ${AGENT}${running}${R}"
 fi
 
-echo -e "${stopmark}${DIR}${dir}${R} ${SEP} ${mode_seg}${MODEL}${model}${R} ${SEP} ${CTX}${ctx_pct}% token ${PAREN}-${CTX} ${total}${R}${limits}${agents}${git_seg}"
+echo -e "${DIR}${dir}${R} ${SEP} ${mode_seg}${MODEL}${model}${R} ${SEP} ${CTX}${ctx_pct}% token ${PAREN}-${CTX} ${total}${R}${limits}${agents}${git_seg}"
