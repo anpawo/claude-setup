@@ -112,6 +112,7 @@ Call one by typing its name (`/grill`) or just asking for what it does.
 | `ui-tweak` | Makes a visual change and checks it with a headless screenshot | "make the header smaller" |
 | `playwright-cli` | Drives a browser to test or read web pages (needs the optional last step) | "open the page and check the form" |
 | `santa` | Three independent reviewers check a deliverable before it is sent | "santa", "review before sending" |
+| `ram` | Shows what eats memory, per app and per Claude session, and stops leftover MCP servers and browsers | "what's eating my RAM", "/ram" |
 | `sm` | Shortens the last answer as much as possible | "/sm" |
 | `llm-council` | Five advisors answer a hard decision on their own, then review each other | "council this", "should I X or Y" |
 | `design-council` | A team of specialist agents debates a cross-domain technical design | "convene the council" |
