@@ -15,7 +15,6 @@ projects="${projects:-~/Projects}"
 mkdir -p "${projects/#\~/$HOME}" "$C/skills"
 
 cp -R "$here/skills/." "$C/skills/"
-chmod +x "$C/skills/ck/kill.sh"
 cp "$here/statusline.sh" "$C/statusline.sh"
 chmod +x "$C/statusline.sh"
 
