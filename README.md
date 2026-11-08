@@ -96,7 +96,7 @@ Start a new `claude` session. Run `./install.sh` again any time to update.
 ## What it installs
 
 - Skills into `~/.claude/skills/` (list below).
-- `~/.claude/statusline.sh`: model and effort, context use, git branch with `uncommitted` / `unpushed` warnings, and the branch's pull request.
+- `~/.claude/statusline.sh`: model and effort, context use, `uncommitted` / `unpushed` warnings, and the branch's pull request.
 - Startup defaults in `~/.claude/settings.json`: Opus, high effort, no permission prompts.
 - Rules appended to `~/.claude/CLAUDE.md`: work inside the project folder, commit and push each working change.
 - The `ponytail` plugin: pushes Claude toward the simplest code that works.

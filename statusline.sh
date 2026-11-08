@@ -65,9 +65,9 @@ if git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   else
     col=$SYNCED; word="up to date"
   fi
-  git_seg=" ${SEP} ${col}@${branch}${word:+ ${PAREN}-${col} $word}${R}"
+  git_seg="${word:+ ${SEP} ${col}$word${R}}"
 
-  # The branch's pull request, right of the branch. `gh` takes a second over the network, too
+  # The branch's pull request, right of the git state. `gh` takes a second over the network, too
   # slow for a line redrawn every 5 s: a cache per repo and branch, refreshed in the background
   # once a minute, so the line shows what the last fetch saw.
   url=$(git -C "$repo" remote get-url origin 2>/dev/null)
@@ -109,29 +109,7 @@ model=${model%% (*}
 effort=$(echo "$input" | jq -r '.effort.level // empty' 2>/dev/null)
 [[ -n "$effort" ]] && model="${model} ${PAREN}-${MODEL} ${effort}"
 
-# Permission mode, left of the model, in the same red and words as Claude Code's footer.
-# The payload does not carry it; the transcript writes a `permission-mode` line at each
-# prompt, so a shift+tab between two prompts shows at the next prompt.
-MODE_BYPASS='\033[38;2;171;43;63m' # the red of Claude Code's "bypass permissions on" line
-MODE_EDIT='\033[38;5;179m'   # amber
-MODE_PLAN='\033[38;5;62m'    # periwinkle
 tp=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
-mode_seg=""
-pm=""
-if [[ -r "$tp" ]]; then
-  pm=$(tail -c 200000 "$tp" 2>/dev/null | grep -oE '"type":"permission-mode","permissionMode":"[A-Za-z]+"' | tail -1)
-  pm=${pm##*:\"}; pm=${pm%\"}
-fi
-if [[ -n "$pm" ]]; then
-  case "$pm" in
-    bypassPermissions) mode_seg="${MODE_BYPASS}⏵⏵ bypass permissions on${R}";;
-    dontAsk)           mode_seg="${MODE_BYPASS}⏵⏵ don't ask on${R}";;
-    acceptEdits)       mode_seg="${MODE_EDIT}⏵⏵ accept edits on${R}";;
-    auto)              mode_seg="${MODE_EDIT}auto mode on${R}";;
-    plan)              mode_seg="${MODE_PLAN}plan mode on${R}";;
-  esac
-  [[ -n "$mode_seg" ]] && mode_seg="${mode_seg} ${SEP} "
-fi
 
 # Context fill as "4% 1M": percentage of the window plus the window size. The raw
 # token count is dropped: it's the same measurement the percentage already states.
@@ -226,4 +204,4 @@ if [[ -r "$tp" ]]; then
   [[ -n "$running" ]] && agents=" ${SEP} ${AGENT}${running}${R}"
 fi
 
-echo -e "${DIR}${dir}${R} ${SEP} ${mode_seg}${MODEL}${model}${R} ${SEP} ${CTX}${ctx_pct}% token ${PAREN}-${CTX} ${total}${R}${limits}${agents}${git_seg}"
+echo -e "${DIR}${dir}${R} ${SEP} ${MODEL}${model}${R} ${SEP} ${CTX}${ctx_pct}% token ${PAREN}-${CTX} ${total}${R}${limits}${agents}${git_seg}"
